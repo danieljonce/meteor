@@ -897,10 +897,7 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
     }
   });
 
-  if (documentSelectorResult === branchResult.mayBecomeTrue)
-    return true;
-  else
-    return false;
+  return documentSelectorResult === branchResult.mayBecomeTrue;
 
   // "foo.bar.baz" => ["foo", "foo.bar", "foo.bar.baz"]
   function pathPrefixes(path) {

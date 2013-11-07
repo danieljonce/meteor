@@ -2753,6 +2753,13 @@ Tinytest.add("minimongo - can selector become true by modifier", function (test)
   T({'foo.bar.baz': 1}, {$unset:{'foo': 1}}, "simple unset of the interesting path prefix");
   F({'foo.bar.baz': 1}, {$unset:{'foo.baz': 1}}, "simple unset of the interesting path prefix");
   F({'foo.bar.baz': 1}, {$unset:{'foo.bar.bar': 1}}, "simple unset of the interesting path prefix");
+  // This is false, because there may remain other array elements that match
+  F({'a.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field");
+  T({'a.1.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field with exactly the same index as selector");
+  F({'a.2.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field with different index as selector");
+  // This is false, because if you are looking for array but in reality it is an
+  // object, it just can't get to true.
+  F({'a.2.b': 1}, {$unset:{'a.b': 1}}, "unset of field while selector is looking for index");
 });
 
 
