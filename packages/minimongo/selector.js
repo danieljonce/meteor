@@ -846,6 +846,7 @@ getPathsWithoutNumericKeys = function (sel) {
 //                     accepting the modified value.
 LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
 {
+  modifier = _.extend({$set:{}, $unset:{}}, modifier);
   // Iterate over each branch of the selector, three possible results:
   //  - modifications make this branch's result 100% false
   //  - modifications make this branch's result maybe true
@@ -865,8 +866,12 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
       return branchResult.mayBecomeTrue;
     } else {
       // Value selector, key path is a keyPath, not a branching operator
-      // XXX check if there is an $unset for this path or path prefix and return
-      // becomesFalse if so.
+      var keyPath = key;
+      // if modifier explicitely unsets keyPath or its parent, then it's 100%
+      // not matching
+      if (!_.isEmpty(_.intersection(_.keys(modifier.$unset), pathPrefixes(keyPath))))
+        return branchResult.becomesFalse;
+
       if (_.isNull(subSelector)) {
         // XXX check if there is a $set to null (maybe in array), return mayBecomeTrue
       }
@@ -891,6 +896,18 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
       }
     }
   });
+
+  if (documentSelectorResult === branchResult.mayBecomeTrue)
+    return true;
+  else
+    return false;
+
+  // "foo.bar.baz" => ["foo", "foo.bar", "foo.bar.baz"]
+  function pathPrefixes(path) {
+    var parts = path.split('.');
+    return _.map(parts, function (p, i) {
+      return parts.slice(0, i + 1).join('.'); });
+  }
 };
 
 // Returns a list of key paths the given selector is looking for

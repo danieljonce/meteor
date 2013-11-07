@@ -2737,3 +2737,22 @@ Tinytest.add("minimongo - selector and projection combination", function (test) 
 
 });
 
+Tinytest.add("minimongo - can selector become true by modifier", function (test) {
+  // XXX this section is still in progress
+  // T - should return true
+  // F - should return false
+  function T (sel, mod, desc) {
+    test.isTrue(LocalCollection._canSelectorBecomeTrueByModifier(sel, mod), desc);
+  }
+  function F (sel, mod, desc) {
+    test.isFalse(LocalCollection._canSelectorBecomeTrueByModifier(sel, mod), desc);
+  }
+
+  T({'foo.bar.baz': 1}, {$unset:{'foo.bar.baz': 1}}, "simple unset of the interesting path");
+  T({'foo.bar.baz': 1}, {$unset:{'foo.bar': 1}}, "simple unset of the interesting path prefix");
+  T({'foo.bar.baz': 1}, {$unset:{'foo': 1}}, "simple unset of the interesting path prefix");
+  F({'foo.bar.baz': 1}, {$unset:{'foo.baz': 1}}, "simple unset of the interesting path prefix");
+  F({'foo.bar.baz': 1}, {$unset:{'foo.bar.bar': 1}}, "simple unset of the interesting path prefix");
+});
+
+
