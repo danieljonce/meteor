@@ -859,7 +859,7 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
   // If at least one of branches is 100% false, return false immediately.
   // If none are 100% false and at least one is maybe true, then return true.
   // Otherwise return false since none of the branches are affected.
-  var documentSelectorResult = _.max(selector, function (subSelector, key) {
+  function checkValueSelector (subSelector, key, modifier) {
     if (key.substr(0, 1) === '$') {
       // Some logical operator
       // XXX branch more and recursively find the truth
@@ -874,11 +874,19 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
 
       if (_.isNull(subSelector)) {
         // XXX check if there is a $set to null (maybe in array), return mayBecomeTrue
+        if (_.isNull(modifier.$set[keyPath]))
+          return branchResult.mayBecomeTrue;
+        else
+          return branchResult.becomesFalse;
       }
 
       if (!_.isObject(subSelector)) {
         // Scalar value selector: String, Number, Boolean
         // XXX check if there is a $set to it (maybe in array), return mayBecomeTrue
+        if (!_.has(modifier.$set, keyPath))
+          return branchResult.noChange;
+        return modifier.$set[keyPath] === subSelector ? branchResult.mayBecomeTrue
+                                                      : branchResult.becomesFalse;
       }
 
       if (_.isArray(subSelector)) {
@@ -895,8 +903,13 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
         // subpart of (1) closer look at literal selector
       }
     }
-  });
+  }
 
+  var documentSelectorResult = _.reduce(selector, function (res, subSelector, key) {
+    if (res === branchResult.becomesFalse)
+      return res;
+    return Math.max(res, checkValueSelector(subSelector, key, modifier));
+  }, branchResult.noChange);
   return documentSelectorResult === branchResult.mayBecomeTrue;
 
   // "foo.bar.baz" => ["foo", "foo.bar", "foo.bar.baz"]
