@@ -895,7 +895,10 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
       }
 
       if (_.isRegExp(subSelector)) {
-        // XXX look for $set on the key path for a string matching regexp
+        if (!_.has(modifier.$set, keyPath))
+          return branchResult.noChange;
+        return subSelector.test(modifier.$set[keyPath]) ? branchResult.mayBecomeTrue
+                                                        : branchResult.becomesFalse;
       }
 
       if (_.isObject(subSelector)) {
