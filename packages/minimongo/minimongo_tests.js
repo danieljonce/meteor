@@ -2737,8 +2737,9 @@ Tinytest.add("minimongo - selector and projection combination", function (test) 
 
 });
 
-Tinytest.add("minimongo - can selector become true by modifier", function (test) {
+(function () {
   // XXX this section is still in progress
+  var test = null; // set this global in the beginning of every test
   // T - should return true
   // F - should return false
   function T (sel, mod, desc) {
@@ -2748,6 +2749,8 @@ Tinytest.add("minimongo - can selector become true by modifier", function (test)
     test.isFalse(LocalCollection._canSelectorBecomeTrueByModifier(sel, mod), desc);
   }
 
+Tinytest.add("minimongo - can selector become true by modifier - literals", function (t) {
+  test = t;
   T({x:1}, {$set:{x:1}}, "simple set scalar");
   T({x:"a"}, {$set:{x:"a"}}, "simple set scalar");
   T({x:false}, {$set:{x:false}}, "simple set scalar");
@@ -2761,19 +2764,25 @@ Tinytest.add("minimongo - can selector become true by modifier", function (test)
   F({'foo.bar.baz': 1}, {$unset:{'foo.bar.bar': 1}}, "simple unset of the interesting path prefix");
   // This is false, because there may remain other array elements that match
   F({'a.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field");
+
+  // Nulls
+  T({ 'foo.bar': null }, {$set:{'foo.bar': null}}, "set of null looking for null");
+  F({ 'foo.bar': null }, {$set:{'foo': null}}, "set of null of different path looking for null");
+  F({ 'foo.bar': null }, {$set:{'foo.bar.baz': null}}, "set of null of different path looking for null");
+
+});
+
+Tinytest.add("minimongo - can selector become true by modifier - literals with arrays", function (t) {
+  test = t;
   // XXX fix this one
   T({'a.1.b': 1, x:1}, {$unset:{'a.1.b': 1}, $set:{x:1}}, "unset of array element's field with exactly the same index as selector");
   F({'a.2.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field with different index as selector");
   // This is false, because if you are looking for array but in reality it is an
   // object, it just can't get to true.
   F({'a.2.b': 1}, {$unset:{'a.b': 1}}, "unset of field while selector is looking for index");
-
-  // Nulls
-  T({ 'foo.bar': null }, {$set:{'foo.bar': null}}, "set of null looking for null");
-  F({ 'foo.bar': null }, {$set:{'foo': null}}, "set of null of different path looking for null");
-  F({ 'foo.bar': null }, {$set:{'foo.bar.baz': null}}, "set of null of different path looking for null");
   T({ 'foo.bar': null }, {$set:{'foo.1.bar': null}}, "set array's element's field to null looking for null");
   T({ 'foo.bar': null }, {$set:{'foo.0.bar': 1, 'foo.1.bar': null}}, "set array's element's field to null looking for null");
 });
 
+})();
 
