@@ -2788,5 +2788,13 @@ Tinytest.add("minimongo - can selector become true by modifier - literals with a
   T({ 'foo.bar': null }, {$set:{'foo.0.bar': 1, 'foo.1.bar': null}}, "set array's element's field to null looking for null");
 });
 
+Tinytest.add("minimongo - can selector become true by modifier - set an object literal whose fields are selected", function (t) {
+  test = t;
+  T({ 'a.b.c': 1 }, { $set: { 'a.b': { c: 1 } } }, "a simple scalar selector and simple set");
+  F({ 'a.b.c': 1 }, { $set: { 'a.b': { c: 2 } } }, "a simple scalar selector and simple set to false");
+  F({ 'a.b.c': 1 }, { $set: { 'a.b': { d: 1 } } }, "a simple scalar selector and simple set a wrong literal");
+  F({ 'a.b.c': 1 }, { $set: { 'a.b': 222 } }, "a simple scalar selector and simple set a wrong type");
+});
+
 })();
 
