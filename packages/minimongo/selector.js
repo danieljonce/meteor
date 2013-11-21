@@ -872,9 +872,10 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
       if (!_.isEmpty(_.intersection(_.keys(modifier.$unset), pathPrefixes(keyPath))))
         return branchResult.becomesFalse;
 
-      if (_.isNull(subSelector)) {
+      // XXX this check should be special
+      if (subSelector == null) { // null or undefined
         // XXX check if there is a $set to null (maybe in array), return mayBecomeTrue
-        if (_.isNull(modifier.$set[keyPath]))
+        if (modifier.$set[keyPath] == null) // null or undefined
           return branchResult.mayBecomeTrue;
         else
           return branchResult.becomesFalse;
