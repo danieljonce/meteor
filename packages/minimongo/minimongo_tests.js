@@ -2764,6 +2764,10 @@ Tinytest.add("minimongo - can selector become true by modifier - literals", func
   F({'foo.bar.baz': 1}, {$unset:{'foo.bar.bar': 1}}, "simple unset of the interesting path prefix");
   // This is false, because there may remain other array elements that match
   F({'a.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field");
+});
+
+Tinytest.add("minimongo - can selector become true by modifier - regexps", function (t) {
+  test = t;
 
   // Regexp
   T({ 'foo.bar': /^[0-9]+$/i }, { $set: {'foo.bar': '01233'} }, "set of regexp");
