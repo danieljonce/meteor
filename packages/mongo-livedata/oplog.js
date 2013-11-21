@@ -98,7 +98,7 @@ MongoConnection.prototype._observeChangesWithOplog = function (
       var error = null;
       var fut = new Future;
       Fiber(function () {
-        currentlyFetching.each(function (cacheKey, id) {
+        currentlyFetching.forEach(function (cacheKey, id) {
           // currentlyFetching will not be updated during this loop.
           waiting++;
           self._docFetcher.fetch(cursorDescription.collectionName, id, cacheKey, function (err, doc) {
@@ -198,7 +198,7 @@ MongoConnection.prototype._observeChangesWithOplog = function (
   var oplogEntryHandle = self._oplogHandle.onOplogEntry(
     cursorDescription.collectionName, function (op) {
       if (op.op === 'c') {
-        published.each(function (fields, id) {
+        published.forEach(function (fields, id) {
           remove(id);
         });
       } else {
