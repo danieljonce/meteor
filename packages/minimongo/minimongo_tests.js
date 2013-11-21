@@ -2765,15 +2765,26 @@ Tinytest.add("minimongo - can selector become true by modifier - literals", func
   // This is false, because there may remain other array elements that match
   F({'a.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field");
 
-  // Nulls
-  T({ 'foo.bar': null }, {$set:{'foo.bar': null}}, "set of null looking for null");
-  F({ 'foo.bar': null }, {$set:{'foo': null}}, "set of null of different path looking for null");
-  F({ 'foo.bar': null }, {$set:{'foo.bar.baz': null}}, "set of null of different path looking for null");
-
   // Regexp
   T({ 'foo.bar': /^[0-9]+$/i }, { $set: {'foo.bar': '01233'} }, "set of regexp");
   F({ 'foo.bar': /^[0-9]+$/i, x: 1 }, { $set: {'foo.bar': '0a1233', x: 1} }, "set of regexp");
   F({ 'foo.bar': /^[0-9]+$/i, x: 1 }, { $unset: {'foo.bar': 1}, $set: { x: 1 } }, "unset of regexp");
+});
+
+Tinytest.add("minimongo - can selector become true by modifier - undefined/null", function (t) {
+  test = t;
+  // Nulls / Undefined
+  T({ 'foo.bar': null }, {$set:{'foo.bar': null}}, "set of null looking for null");
+  T({ 'foo.bar': null }, {$set:{'foo.bar': undefined}}, "set of undefined looking for null");
+  T({ 'foo.bar': undefined }, {$set:{'foo.bar': null}}, "set of null looking for undefined");
+  T({ 'foo.bar': undefined }, {$set:{'foo.bar': undefined}}, "set of undefined looking for undefined");
+  F({ 'foo.bar': null }, {$set:{'foo': null}}, "set of null of different path looking for null");
+  F({ 'foo.bar': null }, {$set:{'foo.bar.baz': null}}, "set of null of different path looking for null");
+  T({ 'foo.bar': null }, { $unset: { 'foo': 1 } }, "unset the parent");
+  T({ 'foo.bar': null }, { $unset: { 'foo.bar': 1 } }, "unset tracked path");
+  T({ 'foo.bar': null }, { $set: { 'foo': 3 } }, "set the parent");
+  T({ 'foo.bar': null }, { $set: { 'foo': {baz:1} } }, "set the parent");
+
 });
 
 Tinytest.add("minimongo - can selector become true by modifier - literals with arrays", function (t) {
