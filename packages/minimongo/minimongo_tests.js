@@ -2766,7 +2766,7 @@ Tinytest.add("minimongo - can selector become true by modifier - literals (struc
   F(selector, {$unset:{ 'a.b.c': 1 }});
   T(selector, {$set:{ 'a.b': { c: 2 } }});
   F(selector, {$set:{ 'a.b': {} }});
-  F(selector, {$set:{ 'a.b': { c: 2, x: 5 } }});
+  T(selector, {$set:{ 'a.b': { c: 2, x: 5 } }});
   F(selector, {$set:{ 'a.b.c.k': 3 }});
   F(selector, {$set:{ 'a.b.c.k': {} }});
 
@@ -2819,7 +2819,7 @@ Tinytest.add("minimongo - can selector become true by modifier - undefined/null"
   T({ 'foo.bar': null }, {$set:{'foo.bar': undefined}}, "set of undefined looking for null");
   T({ 'foo.bar': undefined }, {$set:{'foo.bar': null}}, "set of null looking for undefined");
   T({ 'foo.bar': undefined }, {$set:{'foo.bar': undefined}}, "set of undefined looking for undefined");
-  F({ 'foo.bar': null }, {$set:{'foo': null}}, "set of null of different path looking for null");
+  T({ 'foo.bar': null }, {$set:{'foo': null}}, "set of null of parent path looking for null");
   F({ 'foo.bar': null }, {$set:{'foo.bar.baz': null}}, "set of null of different path looking for null");
   T({ 'foo.bar': null }, { $unset: { 'foo': 1 } }, "unset the parent");
   T({ 'foo.bar': null }, { $unset: { 'foo.bar': 1 } }, "unset tracked path");
@@ -2838,6 +2838,8 @@ Tinytest.add("minimongo - can selector become true by modifier - literals with a
   F({'a.2.b': 1}, {$unset:{'a.b': 1}}, "unset of field while selector is looking for index");
   T({ 'foo.bar': null }, {$set:{'foo.1.bar': null}}, "set array's element's field to null looking for null");
   T({ 'foo.bar': null }, {$set:{'foo.0.bar': 1, 'foo.1.bar': null}}, "set array's element's field to null looking for null");
+  // This is false, because there may remain other array elements that match
+  F({'a.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field");
 });
 
 Tinytest.add("minimongo - can selector become true by modifier - set an object literal whose fields are selected", function (t) {
@@ -2847,8 +2849,6 @@ Tinytest.add("minimongo - can selector become true by modifier - set an object l
   F({ 'a.b.c': 1 }, { $set: { 'a.b': { d: 1 } } }, "a simple scalar selector and simple set a wrong literal");
   F({ 'a.b.c': 1 }, { $set: { 'a.b': 222 } }, "a simple scalar selector and simple set a wrong type");
 });
-  // This is false, because there may remain other array elements that match
-  F({'a.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field");
 
 })();
 
