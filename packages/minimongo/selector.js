@@ -837,91 +837,32 @@ getPathsWithoutNumericKeys = function (sel) {
   });
 };
 
-// XXX first stage, at least deal with literals in selector
-// @param selector - Object: MongoDB selector and the selector, no support for
-//                           $where or $near.
+// @param selector - Object: MongoDB selector. Currently doesn't support
+//                           $-operators and arrays well.
 // @param modifier - Object: MongoDB-styled modifier with `$set`s and `$unsets`
 //                           only. (assumed to come from oplog)
 // @returns - Boolean: if after applying the modifier, selector can start
 //                     accepting the modified value.
 LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
 {
+  if (!LocalCollection._isSelectorAffectedByModifier(selector, modifier))
+    return false;
+
   modifier = _.extend({$set:{}, $unset:{}}, modifier);
-  // Iterate over each branch of the selector, three possible results:
-  //  - modifications make this branch's result 100% false
-  //  - modifications make this branch's result maybe true
-  //  - neither, doesn't affect branch at all
-  //  Poor man's enum:
-  var branchResult = { becomesFalse: 2,
-                       mayBecomeTrue: 1,
-                       noChange: 0 };
 
-  // If at least one of branches is 100% false, return false immediately.
-  // If none are 100% false and at least one is maybe true, then return true.
-  // Otherwise return false since none of the branches are affected.
-  function checkValueSelector (subSelector, key, modifier) {
-    if (key.substr(0, 1) === '$') {
-      // Some logical operator
-      // XXX branch more and recursively find the truth
-      return branchResult.mayBecomeTrue;
-    } else {
-      // Value selector, key path is a keyPath, not a branching operator
-      var keyPath = key;
-      // if modifier explicitely unsets keyPath or its parent, then it's 100%
-      // not matching
-      if (!_.isEmpty(_.intersection(_.keys(modifier.$unset), pathPrefixes(keyPath))))
-        return branchResult.becomesFalse;
+  var doc = pathsToTree(_.keys(selector),
+                        function (path) { return selector[path]; },
+                        _.identity /*conflict resolution is no resolution*/);
 
-      // XXX this check should be special
-      if (subSelector == null) { // null or undefined
-        // XXX check if there is a $set to null (maybe in array), return mayBecomeTrue
-        if (modifier.$set[keyPath] == null) // null or undefined
-          return branchResult.mayBecomeTrue;
-        else
-          return branchResult.becomesFalse;
-      }
+  var selectorFn = LocalCollection._compileSelector(selector);
 
-      if (!_.isObject(subSelector)) {
-        // Scalar value selector: String, Number, Boolean
-        // XXX check if there is a $set to it (maybe in array), return mayBecomeTrue
-        if (!_.has(modifier.$set, keyPath))
-          return branchResult.noChange;
-        return modifier.$set[keyPath] === subSelector ? branchResult.mayBecomeTrue
-                                                      : branchResult.becomesFalse;
-      }
-
-      if (_.isArray(subSelector)) {
-        // XXX Special logic in case it is an array. Should it be similar to
-        // logic of Object?
-      }
-
-      if (_.isRegExp(subSelector)) {
-        if (!_.has(modifier.$set, keyPath))
-          return branchResult.noChange;
-        return subSelector.test(modifier.$set[keyPath]) ? branchResult.mayBecomeTrue
-                                                        : branchResult.becomesFalse;
-      }
-
-      if (_.isObject(subSelector)) {
-        // XXX special logic as described in "modifier & selector" hackpad,
-        // subpart of (1) closer look at literal selector
-      }
-    }
+  try {
+    LocalCollection._modify(doc, modifier);
+  } catch (e) {
+    return false;
   }
 
-  var documentSelectorResult = _.reduce(selector, function (res, subSelector, key) {
-    if (res === branchResult.becomesFalse)
-      return res;
-    return Math.max(res, checkValueSelector(subSelector, key, modifier));
-  }, branchResult.noChange);
-  return documentSelectorResult === branchResult.mayBecomeTrue;
-
-  // "foo.bar.baz" => ["foo", "foo.bar", "foo.bar.baz"]
-  function pathPrefixes(path) {
-    var parts = path.split('.');
-    return _.map(parts, function (p, i) {
-      return parts.slice(0, i + 1).join('.'); });
-  }
+  return selectorFn(doc);
 };
 
 // Returns a list of key paths the given selector is looking for
