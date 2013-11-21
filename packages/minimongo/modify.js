@@ -151,7 +151,7 @@ LocalCollection._modifiers = {
     }
   },
   $set: function (target, field, arg) {
-    if (!_.isObject(target))
+    if (!_.isObject(target)) // not an array or an object
       throw Error("Cannot set property on non-object field");
     if (field === '_id' && !EJSON.equals(arg, target._id))
       throw Error("Cannot change the _id of a document");
