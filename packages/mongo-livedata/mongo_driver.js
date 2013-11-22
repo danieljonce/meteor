@@ -1279,7 +1279,8 @@ var LiveResultsSet = function (cursorDescription, mongoHandle, ordered,
     });
   }
 
-  // XXX do we need to ensure poll is scheduled once???
+  // Make sure we actually poll soon!
+  self._unthrottledEnsurePollIsScheduled();
 
   // XXX look into facts
   Package.facts && Package.facts.Facts.incrementServerFact(
@@ -1287,7 +1288,7 @@ var LiveResultsSet = function (cursorDescription, mongoHandle, ordered,
 };
 
 _.extend(LiveResultsSet.prototype, {
-  // This is always called through _.throttle.
+  // This is always called through _.throttle (except once at startup).
   _unthrottledEnsurePollIsScheduled: function () {
     var self = this;
     if (self._pollsScheduledButNotStarted > 0)

@@ -1,3 +1,5 @@
+var Future = Npm.require('fibers/future');
+
 ObserveMultiplexer = function (options) {
   var self = this;
 
@@ -95,7 +97,7 @@ _.extend(ObserveMultiplexer.prototype, {
   },
   callbackNames: function () {
     var self = this;
-    if (self.ordered)
+    if (self._ordered)
       return ["addedBefore", "changed", "movedBefore", "removed"];
     else
       return ["added", "changed", "removed"];
