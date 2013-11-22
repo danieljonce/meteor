@@ -41,7 +41,7 @@ _.extend(ObserveMultiplexer.prototype, {
     self._queue.runTask(function () {
       if (self._ready)
         self._sendAdds(handle);
-      self._handles[handle.id] = handle;
+      self._handles[handle._id] = handle;
       --self._addHandleTasksScheduledButNotPerformed;
     });
     // *outside* the task, since otherwise we'd deadlock
