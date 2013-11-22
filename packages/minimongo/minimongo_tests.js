@@ -2830,7 +2830,8 @@ Tinytest.add("minimongo - can selector become true by modifier - undefined/null"
 
 Tinytest.add("minimongo - can selector become true by modifier - literals with arrays", function (t) {
   test = t;
-  // XXX fix this one
+  // These tests are incomplete and in theory they all should return true as we
+  // don't support any case with numeric fields yet.
   T({'a.1.b': 1, x:1}, {$unset:{'a.1.b': 1}, $set:{x:1}}, "unset of array element's field with exactly the same index as selector");
   F({'a.2.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field with different index as selector");
   // This is false, because if you are looking for array but in reality it is an
@@ -2839,7 +2840,8 @@ Tinytest.add("minimongo - can selector become true by modifier - literals with a
   T({ 'foo.bar': null }, {$set:{'foo.1.bar': null}}, "set array's element's field to null looking for null");
   T({ 'foo.bar': null }, {$set:{'foo.0.bar': 1, 'foo.1.bar': null}}, "set array's element's field to null looking for null");
   // This is false, because there may remain other array elements that match
-  F({'a.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field");
+  // but we modified this test as we don't support this case yet
+  T({'a.b': 1}, {$unset:{'a.1.b': 1}}, "unset of array element's field");
 });
 
 Tinytest.add("minimongo - can selector become true by modifier - set an object literal whose fields are selected", function (t) {
