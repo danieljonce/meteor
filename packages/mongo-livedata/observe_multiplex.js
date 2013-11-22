@@ -1,49 +1,99 @@
-ObserveMultiplex = function (ordered) {
+ObserveMultiplexer = function (options) {
   var self = this;
 
-  self._ordered = ordered;
+  if (!options || !_.has(options, 'ordered'))
+    throw Error("must specified ordered");
+
+  self._ordered = options.ordered;
+  self._onStop = options.onStop || function () {};
   self._queue = new Meteor._SynchronousQueue();
   self._handles = {};
   self._ready = false;
   self._readyFuture = new Future;
-  self._cache = new LocalCollection._CachingChangeObserver({ordered: ordered});
+  self._cache = new LocalCollection._CachingChangeObserver({
+    ordered: options.ordered});
+  // Number of addHandleAndSendInitialAdds tasks scheduled but not yet
+  // running. removeHandle uses this to know if it's time to call the onStop
+  // callback.
+  self._addHandleTasksScheduledButNotPerformed = 0;
 
-  _.each(self._callbackNames(), function (callbackName) {
+  _.each(self.callbackNames(), function (callbackName) {
     self[callbackName] = function (/* ... */) {
       self._applyCallback(callbackName, _.toArray(arguments));
     };
   });
 };
 
-_.extend(ObserveMultiplex.prototype, {
+_.extend(ObserveMultiplexer.prototype, {
   addHandleAndSendInitialAdds: function (handle) {
     var self = this;
+
+    // Check this before calling runTask (even though runTask does the same
+    // check) so that we don't leak a LiveResultsSet by incrementing
+    // _addHandleTasksScheduledButNotPerformed and never decrementing it.
+    if (!self._queue.safeToRunTask())
+      throw new Error(
+        "Can't call observeChanges from an observe callback on the same query");
+    ++self._addHandleTasksScheduledButNotPerformed;
+
     self._queue.runTask(function () {
       if (self._ready)
         self._sendAdds(handle);
-      // XXX do we still have these IDs?
-      self._handles[handle._observeHandleId] = handle;
+      self._handles[handle.id] = handle;
+      --self._addHandleTasksScheduledButNotPerformed;
     });
     // *outside* the task, since otherwise we'd deadlock
     self._waitUntilReady();
+  },
+
+  // Remove an observe handle. If it was the last observe handle, call the
+  // onStop callback; you cannot add any more observe handles after this.
+  //
+  // This is not synchronized with polls and handle additions: this means that
+  // you can safely call it from within an observe callback, but it also means
+  // that we have to be careful when we iterate over _handles.
+  removeHandle: function (id) {
+    var self = this;
+    delete self._handles[id];
+    if (_.isEmpty(self._handles) &&
+        self._addHandleTasksScheduledButNotPerformed === 0) {
+      self._stop();
+    }
+  },
+  _stop: function () {
+    var self = this;
+    // Call stop callback (which kills the underlying process which sends us
+    // callbacks and removes us from the connection's dictionary).
+    self._onStop();
+    // Cause future addHandleAndSendInitialAdds calls to throw (but the onStop
+    // callback should make our connection forget about us).
+    self._handles = null;
+    // It shouldn't be possible for us to stop when all our handles still
+    // haven't been returned from observeChanges!
+    if (!self._readyFuture.isResolved())
+      throw Error("surprising _stop");
   },
   _waitUntilReady: function (handle) {
     var self = this;
     self._readyFuture.wait();
   },
+  // Sends initial adds to all the handles we know about so far. Blocks until
+  // they've all been sent.
   ready: function () {
     var self = this;
-    self._queue.queueTask(function () {
+    self._queue.runTask(function () {
       if (self._ready)
         throw Error("can't make ObserveMultiplex ready twice!");
       self._ready = true;
-      _.each(self._handles, function (handle) {
-        self._sendAdds(handle);
+      // Use _.keys iteration in case removeHandle is called concurrently.
+      _.each(_.keys(self._handles), function (handleId) {
+        var handle = self._handles[handleId];
+        handle && self._sendAdds(handle);
       });
       self._readyFuture.return();
     });
   },
-  _callbackNames: function () {
+  callbackNames: function () {
     var self = this;
     if (self.ordered)
       return ["addedBefore", "changed", "movedBefore", "removed"];
@@ -64,11 +114,16 @@ _.extend(ObserveMultiplex.prototype, {
         return;
       // Now multiplex the callbacks out to all observe handles. It's OK if
       // these calls yield; since we're inside a task, no other use of our queue
-      // can continue until these are done. (Notably, we can't add any more
-      // handles to self._handles.)
-      _.each(self._handles, function (handle) {
+      // can continue until these are done. (But we do have to be careful to not
+      // use a handle that got removed, because removeHandle does not use the
+      // queue.)
+      _.each(_.keys(self._handles), function (handleId) {
+        var handle = self._handles[handleId];
+        if (!handle)
+          return;
+        var callback = handle['_' + callbackName];
         // clone arguments so that callbacks can mutate their arguments
-        handle[callbackName].apply(null, EJSON.clone(args));
+        callback && callback.apply(null, EJSON.clone(args));
       });
     });
   },
@@ -77,11 +132,13 @@ _.extend(ObserveMultiplex.prototype, {
     if (self._queue.safeToRunTask())
       throw Error("_sendAdds may only be called from within a task!");
     // XXX this means we don't support "add" with "movedBefore". is that ok?
-    var add = self._ordered ? handle.addedBefore : handle.added;
+    var add = self._ordered ? handle._addedBefore : handle._added;
     if (!add)
       return;
     // note: docs may be an _IdMap or an OrderedDict
     self._cache.docs.forEach(function (doc, id) {
+      if (!_.has(self._handles, handle._id))
+        throw Error("handle got removed before sending initial adds!");
       var fields = EJSON.clone(doc);
       delete fields._id;
       if (self._ordered)
@@ -91,3 +148,25 @@ _.extend(ObserveMultiplex.prototype, {
     });
   }
 });
+
+
+var nextObserveHandleId = 1;
+ObserveHandle = function (multiplexer, callbacks) {
+  var self = this;
+  // The end user is only supposed to call stop().  The other fields are
+  // accessible to the multiplexer, though.
+  self._multiplexer = multiplexer;
+  _.each(multiplexer.callbackNames, function (name) {
+    if (callbacks[name])
+      self['_' + name] = callbacks[name];
+  });
+  self._stopped = false;
+  self._id = nextObserveHandleId++;
+};
+ObserveHandle.prototype.stop = function () {
+  var self = this;
+  if (self._stopped)
+    return;
+  self._stopped = true;
+  self._multiplexer.removeHandle(self._id);
+};
