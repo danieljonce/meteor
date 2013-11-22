@@ -850,6 +850,11 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
 
   modifier = _.extend({$set:{}, $unset:{}}, modifier);
 
+  if (_.any(_.keys(selector), pathHasNumericKeys) ||
+      _.any(_.keys(modifier.$unset), pathHasNumericKeys) ||
+      _.any(_.keys(modifier.$set), pathHasNumericKeys))
+    return true;
+
   var doc = pathsToTree(_.keys(selector),
                         function (path) { return selector[path]; },
                         _.identity /*conflict resolution is no resolution*/);
@@ -878,6 +883,10 @@ var getPaths = MinimongoTest.getSelectorPaths = function (sel) {
     return k;
   }).flatten().uniq().value();
 };
+
+function pathHasNumericKeys (path) {
+  return _.any(path.split('.'), numericKey);
+}
 
 // string can be converted to integer
 function numericKey (s) {
