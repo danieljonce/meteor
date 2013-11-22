@@ -2738,7 +2738,13 @@ Tinytest.add("minimongo - selector and projection combination", function (test) 
 });
 
 (function () {
-  // XXX this section is still in progress
+  // TODO: Tests for "can selector become true by modifier" are incomplete:
+  // - tests with $and/$or/$nor/$not branches
+  // - more tests with arrays fields and numeric keys
+  // - tests when numeric keys actually mean numeric keys, not array indexes
+  // - tests with $-operators in the selector
+  // - fix tests those check incorrect results (adjust to the current
+  // implementation)
   var test = null; // set this global in the beginning of every test
   // T - should return true
   // F - should return false
