@@ -855,6 +855,9 @@ LocalCollection._canSelectorBecomeTrueByModifier = function (selector, modifier)
       _.any(_.keys(modifier.$set), pathHasNumericKeys))
     return true;
 
+  if (!isLiteralSelector(selector))
+    return true;
+
   var doc = pathsToTree(_.keys(selector),
                         function (path) { return selector[path]; },
                         _.identity /*conflict resolution is no resolution*/);
@@ -891,5 +894,17 @@ function pathHasNumericKeys (path) {
 // string can be converted to integer
 function numericKey (s) {
   return /^[0-9]+$/.test(s);
+}
+
+function isLiteralSelector (selector) {
+  return _.all(selector, function (subSelector, keyPath) {
+    if (keyPath.substr(0, 1) === "$")
+      return false;
+    if (!_.isObject(subSelector) || _.isArray(subSelector))
+      return true;
+    return _.all(subSelector, function (value, key) {
+      return key.substr(0, 1) !== "$";
+    });
+  });
 }
 
