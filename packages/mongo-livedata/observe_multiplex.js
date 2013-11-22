@@ -79,11 +79,10 @@ _.extend(ObserveMultiplexer.prototype, {
     var self = this;
     self._readyFuture.wait();
   },
-  // Sends initial adds to all the handles we know about so far. Blocks until
-  // they've all been sent.
+  // Sends initial adds to all the handles we know about so far. Does not block.
   ready: function () {
     var self = this;
-    self._queue.runTask(function () {
+    self._queue.queueTask(function () {
       if (self._ready)
         throw Error("can't make ObserveMultiplex ready twice!");
       self._ready = true;
@@ -94,6 +93,10 @@ _.extend(ObserveMultiplexer.prototype, {
       });
       self._readyFuture.return();
     });
+  },
+  onFlush: function (cb) {
+    var self = this;
+    self._queue.queueTask(cb);
   },
   callbackNames: function () {
     var self = this;
@@ -158,7 +161,7 @@ ObserveHandle = function (multiplexer, callbacks) {
   // The end user is only supposed to call stop().  The other fields are
   // accessible to the multiplexer, though.
   self._multiplexer = multiplexer;
-  _.each(multiplexer.callbackNames, function (name) {
+  _.each(multiplexer.callbackNames(), function (name) {
     if (callbacks[name])
       self['_' + name] = callbacks[name];
   });

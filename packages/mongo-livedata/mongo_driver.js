@@ -1370,16 +1370,18 @@ _.extend(LiveResultsSet.prototype, {
     // Replace self._results atomically.
     self._results = newResults;
 
-    // Call all initial adds. Blocks until they've been called (may yield), so
-    // that we don't commit the writes too early.
+    // Signals the multiplexer to call all initial adds.
     if (first)
       self._multiplexer.ready();
 
-    // Mark all the writes which existed before this call as commmitted. (If new
-    // writes have shown up in the meantime, there'll already be another
-    // _pollMongo task scheduled.)
-    _.each(writesForCycle, function (w) {
-      w.committed();
+    // Once the ObserveMultiplexer has processed everything we've done in this
+    // round, mark all the writes which existed before this call as
+    // commmitted. (If new writes have shown up in the meantime, there'll
+    // already be another _pollMongo task scheduled.)
+    self._multiplexer.onFlush(function () {
+      _.each(writesForCycle, function (w) {
+        w.committed();
+      });
     });
   },
 
